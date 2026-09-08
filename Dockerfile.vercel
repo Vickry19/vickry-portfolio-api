@@ -5,6 +5,7 @@ RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
         intl \
         zip \
         pdo_mysql \
+        pdo_pgsql \
         pdo_sqlite
 
 WORKDIR /app
