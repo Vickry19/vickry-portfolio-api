@@ -35,7 +35,8 @@ RUN mkdir -p \
         bootstrap/cache \
     && composer dump-autoload \
         --no-dev \
-        --classmap-authoritative
+        --classmap-authoritative \
+    && php artisan storage:link
 
 
 # ===== Stage baru: build asset frontend (Vite) =====
