@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Section;
 use App\Models\SiteSetting;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class SiteContentApiController extends Controller
 {
@@ -60,12 +61,20 @@ class SiteContentApiController extends Controller
         ]);
     }
 
+    /**
+     * Convert storage path to URL.
+     * Keep Vercel Blob URLs unchanged.
+     */
     private function assetUrl(?string $path): ?string
-{
-    if (!$path) {
-        return null;
-    }
+    {
+        if (!$path) {
+            return null;
+        }
 
-    return asset('storage/' . $path);
-}
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return asset('storage/' . $path);
+    }
 }

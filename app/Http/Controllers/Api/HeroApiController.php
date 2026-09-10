@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Hero;
 use App\Models\HeroRole;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class HeroApiController extends Controller
 {
@@ -27,6 +28,7 @@ class HeroApiController extends Controller
 
         return response()->json([
             'success' => true,
+
             'data' => [
                 'helloText' => $hero->hello_text,
                 'name' => $hero->name,
@@ -60,10 +62,18 @@ class HeroApiController extends Controller
         ]);
     }
 
+    /**
+     * Convert storage path to URL.
+     * Keep Vercel Blob URLs unchanged.
+     */
     private function assetUrl(?string $path): ?string
     {
         if (!$path) {
             return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
         }
 
         return asset('storage/' . $path);
