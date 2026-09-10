@@ -24,15 +24,47 @@
     </div>
 @endif
 
+@php
+    $profileImageUrl = null;
+    $cvUrl = null;
+
+    if ($hero->profile_image) {
+        $profileImageUrl = filter_var($hero->profile_image, FILTER_VALIDATE_URL)
+            ? $hero->profile_image
+            : asset('storage/' . $hero->profile_image);
+    }
+
+    if ($hero->cv_url) {
+        $cvUrl = filter_var($hero->cv_url, FILTER_VALIDATE_URL)
+            ? $hero->cv_url
+            : asset('storage/' . $hero->cv_url);
+    }
+@endphp
+
 <form
     action="{{ route('admin.hero.update') }}"
     method="POST"
     enctype="multipart/form-data"
     class="mx-auto max-w-5xl space-y-6"
+    id="hero-form"
 >
-
     @csrf
     @method('PUT')
+
+    {{-- Hidden Blob URLs --}}
+    <input
+        type="hidden"
+        name="profile_image"
+        id="profile_image_url"
+        value="{{ old('profile_image', $hero->profile_image) }}"
+    >
+
+    <input
+        type="hidden"
+        name="cv_url"
+        id="cv_url"
+        value="{{ old('cv_url', $hero->cv_url) }}"
+    >
 
     {{-- Main Hero --}}
     <section class="rounded-2xl border border-white/10 bg-[#181818] p-6">
@@ -211,7 +243,7 @@
 
                 <input
                     type="file"
-                    name="profile_image"
+                    id="profile_image_file"
                     accept=".jpg,.jpeg,.png,.webp"
                     class="block w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white/60 file:mr-4 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-black"
                 >
@@ -220,7 +252,13 @@
                     JPG, JPEG, PNG or WEBP. Maximum 5 MB.
                 </p>
 
-                @if($hero->profile_image)
+                {{-- Upload Status --}}
+                <div
+                    id="profile-upload-status"
+                    class="mt-3 hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60"
+                ></div>
+
+                @if($profileImageUrl)
 
                     <div class="mt-4">
 
@@ -229,7 +267,7 @@
                         </p>
 
                         <img
-                            src="{{ asset('storage/' . $hero->profile_image) }}"
+                            src="{{ $profileImageUrl }}"
                             alt="Profile"
                             class="h-32 w-32 rounded-2xl border border-white/10 object-cover"
                         >
@@ -250,7 +288,7 @@
 
                 <input
                     type="file"
-                    name="cv_file"
+                    id="cv_file"
                     accept=".pdf"
                     class="block w-full rounded-xl border border-white/10 bg-[#111111] px-4 py-3 text-sm text-white/60 file:mr-4 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-black"
                 >
@@ -259,7 +297,13 @@
                     PDF only. Maximum 10 MB.
                 </p>
 
-                @if($hero->cv_url)
+                {{-- Upload Status --}}
+                <div
+                    id="cv-upload-status"
+                    class="mt-3 hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60"
+                ></div>
+
+                @if($cvUrl)
 
                     <div class="mt-4">
 
@@ -268,8 +312,9 @@
                         </p>
 
                         <a
-                            href="{{ asset('storage/' . $hero->cv_url) }}"
+                            href="{{ $cvUrl }}"
                             target="_blank"
+                            rel="noopener noreferrer"
                             class="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-sm text-white/70 transition hover:bg-white/5 hover:text-white"
                         >
                             View Current CV
@@ -291,7 +336,8 @@
 
         <button
             type="submit"
-            class="rounded-xl bg-white px-6 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+            id="save-button"
+            class="rounded-xl bg-white px-6 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
             Save Changes
         </button>
@@ -299,5 +345,276 @@
     </div>
 
 </form>
+
+
+{{-- Vercel Blob Upload --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const form = document.getElementById('hero-form');
+
+    const profileInput = document.getElementById('profile_image_file');
+    const cvInput = document.getElementById('cv_file');
+
+    const profileUrlInput = document.getElementById('profile_image_url');
+    const cvUrlInput = document.getElementById('cv_url');
+
+    const profileStatus = document.getElementById('profile-upload-status');
+    const cvStatus = document.getElementById('cv-upload-status');
+
+    const saveButton = document.getElementById('save-button');
+
+    if (
+        !form ||
+        !profileInput ||
+        !cvInput ||
+        !profileUrlInput ||
+        !cvUrlInput
+    ) {
+        return;
+    }
+
+    const BLOB_UPLOAD_URL =
+        'https://vickry-portfolio.vercel.app/api/blob-upload';
+
+
+    function setStatus(element, message, show = true) {
+        if (!element) return;
+
+        element.textContent = message;
+
+        if (show) {
+            element.classList.remove('hidden');
+        } else {
+            element.classList.add('hidden');
+        }
+    }
+
+
+    function sanitizeFilename(filename) {
+        return filename
+            .replace(/[^a-zA-Z0-9._-]/g, '-')
+            .replace(/-+/g, '-');
+    }
+
+
+    async function uploadToBlob(file, folder) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load Vercel Blob Client
+        |--------------------------------------------------------------------------
+        */
+
+        const { upload } = await import(
+            'https://cdn.jsdelivr.net/npm/@vercel/blob@latest/+esm'
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filename
+        |--------------------------------------------------------------------------
+        */
+
+        const filename =
+            folder +
+            '/' +
+            Date.now() +
+            '-' +
+            sanitizeFilename(file.name);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Upload
+        |--------------------------------------------------------------------------
+        */
+
+        const blob = await upload(
+            filename,
+            file,
+            {
+                access: 'public',
+
+                handleUploadUrl: BLOB_UPLOAD_URL,
+            }
+        );
+
+
+        if (!blob || !blob.url) {
+            throw new Error(
+                'Vercel Blob tidak mengembalikan URL file.'
+            );
+        }
+
+
+        return blob.url;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Form Submit
+    |--------------------------------------------------------------------------
+    */
+
+    form.addEventListener('submit', async function (event) {
+
+        event.preventDefault();
+
+
+        try {
+
+            saveButton.disabled = true;
+            saveButton.textContent = 'Uploading...';
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Profile Image
+            |--------------------------------------------------------------------------
+            */
+
+            if (profileInput.files.length > 0) {
+
+                const file = profileInput.files[0];
+
+
+                if (file.size > 5 * 1024 * 1024) {
+                    throw new Error(
+                        'Profile image maksimal 5 MB.'
+                    );
+                }
+
+
+                const allowedTypes = [
+                    'image/jpeg',
+                    'image/png',
+                    'image/webp'
+                ];
+
+
+                if (!allowedTypes.includes(file.type)) {
+                    throw new Error(
+                        'Profile image harus JPG, JPEG, PNG, atau WEBP.'
+                    );
+                }
+
+
+                setStatus(
+                    profileStatus,
+                    'Mengupload profile image...'
+                );
+
+
+                profileUrlInput.value =
+                    await uploadToBlob(
+                        file,
+                        'profile'
+                    );
+
+
+                setStatus(
+                    profileStatus,
+                    'Profile image berhasil diupload.'
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | CV
+            |--------------------------------------------------------------------------
+            */
+
+            if (cvInput.files.length > 0) {
+
+                const file = cvInput.files[0];
+
+
+                if (file.size > 10 * 1024 * 1024) {
+                    throw new Error(
+                        'CV maksimal 10 MB.'
+                    );
+                }
+
+
+                if (file.type !== 'application/pdf') {
+                    throw new Error(
+                        'CV harus berupa file PDF.'
+                    );
+                }
+
+
+                setStatus(
+                    cvStatus,
+                    'Mengupload CV...'
+                );
+
+
+                saveButton.textContent = 'Uploading CV...';
+
+
+                cvUrlInput.value =
+                    await uploadToBlob(
+                        file,
+                        'cv'
+                    );
+
+
+                setStatus(
+                    cvStatus,
+                    'CV berhasil diupload.'
+                );
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Laravel Database
+            |--------------------------------------------------------------------------
+            */
+
+            saveButton.textContent = 'Saving...';
+
+            form.submit();
+
+        } catch (error) {
+
+            console.error(
+                'Vercel Blob upload error:',
+                error
+            );
+
+
+            alert(
+                error instanceof Error
+                    ? error.message
+                    : 'Upload gagal.'
+            );
+
+
+            setStatus(
+                profileStatus,
+                '',
+                false
+            );
+
+            setStatus(
+                cvStatus,
+                '',
+                false
+            );
+
+
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save Changes';
+        }
+
+    });
+
+});
+</script>
 
 @endsection

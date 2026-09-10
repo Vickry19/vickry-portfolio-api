@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Hero;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class HeroController extends Controller
 {
@@ -23,34 +22,87 @@ class HeroController extends Controller
     public function update(Request $request)
     {
         $validated = $request->validate([
-            'hello_text' => ['nullable', 'string', 'max:255'],
-            'name' => ['nullable', 'string', 'max:255'],
-            'role' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'hello_text' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
 
-            'availability_text' => ['nullable', 'string', 'max:255'],
+            'name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
 
-            'primary_button_text' => ['nullable', 'string', 'max:255'],
-            'primary_button_url' => ['nullable', 'string', 'max:500'],
+            'role' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
 
-            'secondary_button_text' => ['nullable', 'string', 'max:255'],
-            'secondary_button_url' => ['nullable', 'string', 'max:500'],
+            'description' => [
+                'nullable',
+                'string',
+            ],
 
-            'based_text' => ['nullable', 'string', 'max:255'],
-            'scroll_text' => ['nullable', 'string', 'max:255'],
+            'availability_text' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'primary_button_text' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'primary_button_url' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'secondary_button_text' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'secondary_button_url' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'based_text' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'scroll_text' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Vercel Blob URLs
+            |--------------------------------------------------------------------------
+            */
 
             'profile_image' => [
                 'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:5120',
+                'url',
+                'max:2048',
             ],
 
-            'cv_file' => [
+            'cv_url' => [
                 'nullable',
-                'file',
-                'mimes:pdf',
-                'max:10240',
+                'url',
+                'max:2048',
             ],
         ]);
 
@@ -64,47 +116,41 @@ class HeroController extends Controller
         |--------------------------------------------------------------------------
         | Profile Image
         |--------------------------------------------------------------------------
+        |
+        | URL berasal dari Vercel Blob.
+        |
         */
 
-        if ($request->hasFile('profile_image')) {
-
-            // Hapus gambar lama
-            if ($hero->profile_image) {
-                Storage::disk('public')->delete($hero->profile_image);
-            }
-
-            // Simpan gambar baru
-            $validated['profile_image'] = $request
-                ->file('profile_image')
-                ->store('images/profile', 'public');
+        if ($request->filled('profile_image')) {
+            $validated['profile_image'] =
+                $request->input('profile_image');
+        } else {
+            unset($validated['profile_image']);
         }
 
         /*
         |--------------------------------------------------------------------------
         | CV
         |--------------------------------------------------------------------------
+        |
+        | URL berasal dari Vercel Blob.
+        |
         */
 
-        if ($request->hasFile('cv_file')) {
-
-            // Hapus CV lama
-            if ($hero->cv_url) {
-                Storage::disk('public')->delete($hero->cv_url);
-            }
-
-            // Simpan CV baru
-            $validated['cv_url'] = $request
-                ->file('cv_file')
-                ->store('cv', 'public');
+        if ($request->filled('cv_url')) {
+            $validated['cv_url'] =
+                $request->input('cv_url');
+        } else {
+            unset($validated['cv_url']);
         }
-
-        // Jangan kirim cv_file ke database
-        unset($validated['cv_file']);
 
         $hero->update($validated);
 
         return redirect()
             ->route('admin.hero.edit')
-            ->with('success', 'Hero berhasil diperbarui.');
+            ->with(
+                'success',
+                'Hero berhasil diperbarui.'
+            );
     }
 }
