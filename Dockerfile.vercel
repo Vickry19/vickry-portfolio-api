@@ -38,9 +38,24 @@ RUN mkdir -p \
         --classmap-authoritative
 
 
+# ===== Stage baru: build asset frontend (Vite) =====
+FROM node:20-bookworm AS assets
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+
 FROM base AS runtime
 
 COPY --from=dependencies --chown=www-data:www-data /app /app
+
+# Copy hasil build Vite (public/build) dari stage assets
+COPY --from=assets --chown=www-data:www-data /app/public/build /app/public/build
 
 COPY --chown=www-data:www-data Caddyfile /etc/frankenphp/Caddyfile
 
