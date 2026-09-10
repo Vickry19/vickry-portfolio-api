@@ -25,9 +25,9 @@
     </div>
 
     <form
+        id="certificate-form"
         action="{{ route('admin.certificates.store') }}"
         method="POST"
-        enctype="multipart/form-data"
     >
         @csrf
 
@@ -37,7 +37,8 @@
 
             <button
                 type="submit"
-                class="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-white/90"
+                id="save-certificate"
+                class="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 Save Certificate
             </button>

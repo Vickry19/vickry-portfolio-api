@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -57,12 +58,16 @@ class ProjectController extends Controller
             'github_url' => ['nullable', 'url', 'max:255'],
             'live_url' => ['nullable', 'url', 'max:255'],
 
-            'cover_image' => [
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:5120',
-            ],
+            /*
+             * Vercel Blob URL
+             */
+            'cover_image' => ['nullable', 'url', 'max:2048'],
+
+            /*
+             * Gallery dari Vercel Blob
+             */
+            'gallery_urls' => ['nullable', 'array'],
+            'gallery_urls.*' => ['nullable', 'url', 'max:2048'],
 
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_visible' => ['nullable', 'boolean'],
@@ -108,10 +113,6 @@ class ProjectController extends Controller
         |--------------------------------------------------------------------------
         | Only One Featured Project
         |--------------------------------------------------------------------------
-        |
-        | Jika project baru dijadikan Featured,
-        | project Featured sebelumnya akan dinonaktifkan.
-        |
         */
 
         if ($validated['is_featured']) {
@@ -121,15 +122,15 @@ class ProjectController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Upload Cover
+        | Cover Image
         |--------------------------------------------------------------------------
+        |
+        | File sudah di-upload langsung ke Vercel Blob melalui frontend.
+        | Laravel hanya menyimpan URL-nya.
+        |
         */
 
-        if ($request->hasFile('cover_image')) {
-            $validated['cover_image'] = $request
-                ->file('cover_image')
-                ->store('images/projects', 'public');
-        }
+        $validated['cover_image'] = $request->input('cover_image');
 
         /*
         |--------------------------------------------------------------------------
@@ -141,28 +142,21 @@ class ProjectController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Upload Gallery
+        | Save Gallery URLs
         |--------------------------------------------------------------------------
         */
 
-        if ($request->hasFile('gallery')) {
-            foreach ($request->file('gallery') as $index => $image) {
-                if (!$image->isValid()) {
-                    continue;
-                }
+        $galleryUrls = array_filter(
+            $request->input('gallery_urls', [])
+        );
 
-                $path = $image->store(
-                    'images/projects/' . $project->slug,
-                    'public'
-                );
-
-                $project->images()->create([
-                    'image' => $path,
-                    'alt' => $project->title,
-                    'sort_order' => $index + 1,
-                    'is_visible' => true,
-                ]);
-            }
+        foreach ($galleryUrls as $index => $url) {
+            $project->images()->create([
+                'image' => $url,
+                'alt' => $project->title,
+                'sort_order' => $index + 1,
+                'is_visible' => true,
+            ]);
         }
 
         return redirect()
@@ -217,19 +211,16 @@ class ProjectController extends Controller
             'github_url' => ['nullable', 'url', 'max:255'],
             'live_url' => ['nullable', 'url', 'max:255'],
 
-            'cover_image' => [
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:5120',
-            ],
+            /*
+             * Cover sekarang berupa URL Blob.
+             */
+            'cover_image' => ['nullable', 'url', 'max:2048'],
 
-            'gallery.*' => [
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:5120',
-            ],
+            /*
+             * Gallery baru berupa URL Blob.
+             */
+            'gallery_urls' => ['nullable', 'array'],
+            'gallery_urls.*' => ['nullable', 'url', 'max:2048'],
 
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_visible' => ['nullable', 'boolean'],
@@ -272,10 +263,6 @@ class ProjectController extends Controller
         |--------------------------------------------------------------------------
         | Only One Featured Project
         |--------------------------------------------------------------------------
-        |
-        | Jika project ini dijadikan Featured,
-        | project lain akan otomatis menjadi non-featured.
-        |
         */
 
         if ($validated['is_featured']) {
@@ -288,18 +275,36 @@ class ProjectController extends Controller
         |--------------------------------------------------------------------------
         | Cover Image
         |--------------------------------------------------------------------------
+        |
+        | Jika user memilih cover baru:
+        | - frontend upload ke Vercel Blob
+        | - hidden input mengirim URL Blob
+        | - Laravel mengganti URL di database
+        |
         */
 
-        if ($request->hasFile('cover_image')) {
-            if ($project->cover_image) {
-                Storage::disk('public')->delete(
-                    $project->cover_image
-                );
-            }
+        if ($request->filled('cover_image')) {
+            $oldCover = $project->cover_image;
 
-            $validated['cover_image'] = $request
-                ->file('cover_image')
-                ->store('images/projects', 'public');
+            $validated['cover_image'] = $request->input('cover_image');
+
+            /*
+             * Hapus file lama hanya jika file tersebut masih merupakan
+             * file legacy Laravel Storage.
+             *
+             * Jangan mencoba menghapus URL Vercel Blob dengan Storage.
+             */
+            if (
+                $oldCover &&
+                !Str::startsWith($oldCover, ['http://', 'https://'])
+            ) {
+                Storage::disk('public')->delete($oldCover);
+            }
+        } else {
+            /*
+             * Jangan menghapus cover lama jika tidak ada cover baru.
+             */
+            unset($validated['cover_image']);
         }
 
         /*
@@ -312,25 +317,20 @@ class ProjectController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Add Gallery Images
+        | Add New Gallery Images
         |--------------------------------------------------------------------------
         */
 
-        if ($request->hasFile('gallery')) {
+        $galleryUrls = array_filter(
+            $request->input('gallery_urls', [])
+        );
+
+        if (!empty($galleryUrls)) {
             $lastSortOrder = $project->images()->max('sort_order') ?? 0;
 
-            foreach ($request->file('gallery') as $index => $image) {
-                if (!$image->isValid()) {
-                    continue;
-                }
-
-                $path = $image->store(
-                    'images/projects/' . $project->slug,
-                    'public'
-                );
-
+            foreach (array_values($galleryUrls) as $index => $url) {
                 $project->images()->create([
-                    'image' => $path,
+                    'image' => $url,
                     'alt' => $project->title,
                     'sort_order' => $lastSortOrder + $index + 1,
                     'is_visible' => true,
@@ -352,9 +352,19 @@ class ProjectController extends Controller
         |--------------------------------------------------------------------------
         | Delete Cover
         |--------------------------------------------------------------------------
+        |
+        | Hanya file legacy Laravel Storage yang dihapus di sini.
+        | Vercel Blob URL tidak diproses oleh Storage.
+        |
         */
 
-        if ($project->cover_image) {
+        if (
+            $project->cover_image &&
+            !Str::startsWith(
+                $project->cover_image,
+                ['http://', 'https://']
+            )
+        ) {
             Storage::disk('public')->delete(
                 $project->cover_image
             );
@@ -367,7 +377,13 @@ class ProjectController extends Controller
         */
 
         foreach ($project->images as $image) {
-            if ($image->image) {
+            if (
+                $image->image &&
+                !Str::startsWith(
+                    $image->image,
+                    ['http://', 'https://']
+                )
+            ) {
                 Storage::disk('public')->delete(
                     $image->image
                 );
@@ -396,7 +412,10 @@ class ProjectController extends Controller
             return null;
         }
 
-        $lines = preg_split('/\r\n|\r|\n/', $value);
+        $lines = preg_split(
+            '/\r\n|\r|\n/',
+            $value
+        );
 
         $lines = array_filter(
             array_map('trim', $lines)

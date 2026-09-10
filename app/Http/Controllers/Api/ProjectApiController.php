@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class ProjectApiController extends Controller
 {
@@ -94,10 +95,20 @@ class ProjectApiController extends Controller
             'githubUrl' => $project->github_url,
             'liveUrl' => $project->live_url,
 
+            /*
+             * Cover image:
+             * - Vercel Blob URL -> langsung
+             * - Legacy Laravel storage path -> asset/storage
+             */
             'coverImage' => $this->imageUrl(
                 $project->cover_image
             ),
 
+            /*
+             * Gallery:
+             * - Vercel Blob URL -> langsung
+             * - Legacy Laravel storage path -> asset/storage
+             */
             'images' => $project->images
                 ->map(
                     fn ($image) => $this->imageUrl($image->image)
@@ -127,13 +138,41 @@ class ProjectApiController extends Controller
     }
 
     /**
-     * Generate public storage URL.
+     * Generate public image URL.
      */
     private function imageUrl(?string $path): ?string
     {
         if (!$path) {
             return null;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Vercel Blob / External URL
+        |--------------------------------------------------------------------------
+        |
+        | Jika database sudah menyimpan URL lengkap seperti:
+        |
+        | https://xxxxx.public.blob.vercel-storage.com/...
+        |
+        | langsung kembalikan URL tersebut.
+        |
+        */
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Legacy Laravel Storage
+        |--------------------------------------------------------------------------
+        |
+        | Untuk gambar lama yang masih tersimpan sebagai:
+        |
+        | images/projects/example.png
+        |
+        */
 
         return asset('storage/' . $path);
     }

@@ -10,11 +10,26 @@
 
 @section('content')
 
+    @php
+        $coverImageUrl = null;
+
+        if ($project->cover_image) {
+            $coverImageUrl = filter_var(
+                $project->cover_image,
+                FILTER_VALIDATE_URL
+            )
+                ? $project->cover_image
+                : asset('storage/' . $project->cover_image);
+        }
+    @endphp
+
+
     @if(session('success'))
         <div class="mb-6 rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-white">
             {{ session('success') }}
         </div>
     @endif
+
 
     @if($errors->any())
         <div class="mb-6 rounded-xl border border-white/10 bg-white/5 p-5">
@@ -34,17 +49,21 @@
         </div>
     @endif
 
+
     <form
+        id="project-form"
         action="{{ route('admin.projects.update', $project) }}"
         method="POST"
-        enctype="multipart/form-data"
         class="space-y-6"
     >
 
         @csrf
         @method('PUT')
 
-        {{-- Basic Information --}}
+
+        {{-- =========================================================
+            BASIC INFORMATION
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <div class="mb-6">
@@ -58,6 +77,7 @@
                 </p>
 
             </div>
+
 
             <div class="grid gap-5 md:grid-cols-2">
 
@@ -76,6 +96,7 @@
 
                 </div>
 
+
                 <div>
 
                     <label class="mb-2 block text-sm text-white/60">
@@ -91,6 +112,7 @@
 
                 </div>
 
+
                 <div class="md:col-span-2">
 
                     <label class="mb-2 block text-sm text-white/60">
@@ -99,6 +121,7 @@
 
                     <input
                         type="text"
+                        id="title"
                         name="title"
                         value="{{ old('title', $project->title) }}"
                         required
@@ -106,6 +129,7 @@
                     >
 
                 </div>
+
 
                 <div>
 
@@ -115,12 +139,14 @@
 
                     <input
                         type="text"
+                        id="slug"
                         name="slug"
                         value="{{ old('slug', $project->slug) }}"
                         class="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-white/30"
                     >
 
                 </div>
+
 
                 <div>
 
@@ -137,6 +163,7 @@
 
                 </div>
 
+
                 <div>
 
                     <label class="mb-2 block text-sm text-white/60">
@@ -151,6 +178,7 @@
                     >
 
                 </div>
+
 
                 <div>
 
@@ -171,7 +199,10 @@
 
         </div>
 
-        {{-- Description --}}
+
+        {{-- =========================================================
+            DESCRIPTION
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <div class="mb-6">
@@ -181,6 +212,7 @@
                 </h2>
 
             </div>
+
 
             <div class="space-y-5">
 
@@ -198,6 +230,7 @@
 
                 </div>
 
+
                 <div>
 
                     <label class="mb-2 block text-sm text-white/60">
@@ -211,6 +244,7 @@
                     >{{ old('long_description', $project->long_description) }}</textarea>
 
                 </div>
+
 
                 <div class="grid gap-5 md:grid-cols-2">
 
@@ -227,6 +261,7 @@
                         >{{ old('problem', $project->problem) }}</textarea>
 
                     </div>
+
 
                     <div>
 
@@ -248,7 +283,10 @@
 
         </div>
 
-        {{-- Technologies --}}
+
+        {{-- =========================================================
+            TECHNOLOGIES
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <div class="mb-6">
@@ -262,6 +300,7 @@
                 </p>
 
             </div>
+
 
             <div class="grid gap-5 md:grid-cols-2">
 
@@ -278,6 +317,7 @@
                     >{{ old('technologies', $project->technologies) }}</textarea>
 
                 </div>
+
 
                 <div>
 
@@ -297,7 +337,10 @@
 
         </div>
 
-        {{-- URLs --}}
+
+        {{-- =========================================================
+            URLS
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <div class="mb-6">
@@ -307,6 +350,7 @@
                 </h2>
 
             </div>
+
 
             <div class="grid gap-5 md:grid-cols-2">
 
@@ -324,6 +368,7 @@
                     >
 
                 </div>
+
 
                 <div>
 
@@ -344,19 +389,36 @@
 
         </div>
 
-        {{-- Cover --}}
+
+        {{-- =========================================================
+            COVER IMAGE
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <h2 class="mb-6 text-base font-semibold text-white">
                 Cover Image
             </h2>
 
-            @if($project->cover_image)
 
-                <div class="mb-5 overflow-hidden rounded-xl border border-white/10">
+            {{-- Hidden URL --}}
+            <input
+                type="hidden"
+                name="cover_image"
+                id="cover_image_url"
+                value="{{ old('cover_image', $project->cover_image) }}"
+            >
+
+
+            {{-- Existing Cover --}}
+            @if($coverImageUrl)
+
+                <div
+                    id="current-cover-wrapper"
+                    class="mb-5 overflow-hidden rounded-xl border border-white/10"
+                >
 
                     <img
-                        src="{{ asset('storage/' . $project->cover_image) }}"
+                        src="{{ $coverImageUrl }}"
                         alt="{{ $project->title }}"
                         class="h-56 w-full object-cover"
                     >
@@ -365,20 +427,46 @@
 
             @endif
 
+
             <input
                 type="file"
-                name="cover_image"
+                id="cover_image_file"
                 accept="image/jpeg,image/png,image/webp"
                 class="block w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60"
             >
 
+
             <p class="mt-2 text-xs text-white/30">
-                Upload gambar baru hanya jika ingin mengganti cover.
+                Upload gambar baru hanya jika ingin mengganti cover. Maksimal 5 MB.
             </p>
+
+
+            <div
+                id="new-cover-preview-wrapper"
+                class="mt-4 hidden overflow-hidden rounded-xl border border-white/10"
+            >
+
+                <img
+                    id="new-cover-preview"
+                    src=""
+                    alt="New cover preview"
+                    class="max-h-72 w-full object-cover"
+                >
+
+            </div>
+
+
+            <div
+                id="cover-upload-status"
+                class="mt-3 hidden rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/50"
+            ></div>
 
         </div>
 
-        {{-- Gallery --}}
+
+        {{-- =========================================================
+            GALLERY
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <div class="mb-6">
@@ -388,28 +476,41 @@
                 </h2>
 
                 <p class="mt-1 text-sm text-white/40">
-                    Gambar yang sudah ada.
+                    Gambar yang sudah ada tetap tersimpan. Upload di bawah untuk menambahkan gambar baru.
                 </p>
 
             </div>
 
+
+            {{-- EXISTING GALLERY --}}
             @if($project->images->count())
 
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
 
                     @foreach($project->images as $image)
 
+                        @php
+                            $galleryImageUrl = filter_var(
+                                $image->image,
+                                FILTER_VALIDATE_URL
+                            )
+                                ? $image->image
+                                : asset('storage/' . $image->image);
+                        @endphp
+
+
                         <div class="overflow-hidden rounded-xl border border-white/10 bg-black/20">
 
                             <div class="aspect-[4/3]">
 
                                 <img
-                                    src="{{ asset('storage/' . $image->image) }}"
+                                    src="{{ $galleryImageUrl }}"
                                     alt="{{ $image->alt ?? $project->title }}"
                                     class="h-full w-full object-cover"
                                 >
 
                             </div>
+
 
                             <div class="p-3">
 
@@ -451,34 +552,54 @@
 
             @endif
 
+
+            {{-- ADD NEW GALLERY --}}
             <div class="mt-6 border-t border-white/10 pt-6">
 
                 <label class="mb-2 block text-sm text-white/60">
                     Add Gallery Images
                 </label>
 
+
                 <input
                     type="file"
-                    name="gallery[]"
+                    id="gallery_files"
                     multiple
                     accept="image/jpeg,image/png,image/webp"
                     class="block w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/60"
                 >
 
+
                 <p class="mt-2 text-xs text-white/30">
-                    Pilih satu atau beberapa gambar.
+                    Pilih satu atau beberapa gambar. Maksimal 5 MB per gambar.
                 </p>
+
+
+                <div
+                    id="gallery-preview"
+                    class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4"
+                ></div>
+
+
+                <div
+                    id="gallery-upload-status"
+                    class="mt-3 hidden rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/50"
+                ></div>
+
+
+                <div id="gallery-url-container"></div>
 
             </div>
 
         </div>
 
-        {{-- Settings --}}
+
+        {{-- =========================================================
+            SETTINGS
+        ========================================================== --}}
         <div class="rounded-2xl border border-white/10 bg-[#151515] p-6">
 
             <div class="grid gap-5 md:grid-cols-2">
-
-                {{-- Sort Order --}}
 
                 <div>
 
@@ -496,7 +617,6 @@
 
                 </div>
 
-                {{-- Visibility --}}
 
                 <div class="flex items-end">
 
@@ -518,7 +638,6 @@
 
                 </div>
 
-                {{-- Featured --}}
 
                 <div class="flex items-center md:col-span-2">
 
@@ -533,6 +652,7 @@
                         >
 
                         <div>
+
                             <span class="block text-sm text-white/70">
                                 Featured Project
                             </span>
@@ -540,6 +660,7 @@
                             <span class="mt-1 block text-xs text-white/30">
                                 Jadikan project ini sebagai project utama di portfolio.
                             </span>
+
                         </div>
 
                     </label>
@@ -550,7 +671,10 @@
 
         </div>
 
-        {{-- Actions --}}
+
+        {{-- =========================================================
+            ACTIONS
+        ========================================================== --}}
         <div class="flex items-center justify-end gap-3">
 
             <a
@@ -560,8 +684,10 @@
                 Cancel
             </a>
 
+
             <button
                 type="submit"
+                id="submit-button"
                 class="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
             >
                 Update Project
@@ -570,5 +696,655 @@
         </div>
 
     </form>
+
+
+    {{-- =========================================================
+        VERCEL BLOB UPLOAD
+    ========================================================== --}}
+    <script>
+
+        document.addEventListener(
+            'DOMContentLoaded',
+            function () {
+
+                const form =
+                    document.getElementById(
+                        'project-form'
+                    );
+
+                const submitButton =
+                    document.getElementById(
+                        'submit-button'
+                    );
+
+                const titleInput =
+                    document.getElementById(
+                        'title'
+                    );
+
+                const slugInput =
+                    document.getElementById(
+                        'slug'
+                    );
+
+                const coverInput =
+                    document.getElementById(
+                        'cover_image_file'
+                    );
+
+                const coverUrlInput =
+                    document.getElementById(
+                        'cover_image_url'
+                    );
+
+                const galleryInput =
+                    document.getElementById(
+                        'gallery_files'
+                    );
+
+                const galleryContainer =
+                    document.getElementById(
+                        'gallery-url-container'
+                    );
+
+                const newCoverWrapper =
+                    document.getElementById(
+                        'new-cover-preview-wrapper'
+                    );
+
+                const newCoverPreview =
+                    document.getElementById(
+                        'new-cover-preview'
+                    );
+
+                const galleryPreview =
+                    document.getElementById(
+                        'gallery-preview'
+                    );
+
+                const coverStatus =
+                    document.getElementById(
+                        'cover-upload-status'
+                    );
+
+                const galleryStatus =
+                    document.getElementById(
+                        'gallery-upload-status'
+                    );
+
+
+                const HANDLE_UPLOAD_URL =
+                    'https://vickry-portfolio.vercel.app/api/blob-upload';
+
+
+                let uploading = false;
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Helpers
+                |--------------------------------------------------------------------------
+                */
+
+                function slugify(value) {
+
+                    return value
+                        .toString()
+                        .toLowerCase()
+                        .trim()
+                        .replace(
+                            /[^a-z0-9\s-]/g,
+                            ''
+                        )
+                        .replace(
+                            /\s+/g,
+                            '-'
+                        )
+                        .replace(
+                            /-+/g,
+                            '-'
+                        );
+                }
+
+
+                function getProjectSlug() {
+
+                    const manualSlug =
+                        slugInput?.value.trim();
+
+                    if (manualSlug) {
+                        return slugify(
+                            manualSlug
+                        );
+                    }
+
+                    return slugify(
+                        titleInput?.value ||
+                        'project'
+                    );
+                }
+
+
+                function showStatus(
+                    element,
+                    message
+                ) {
+
+                    if (!element) {
+                        return;
+                    }
+
+                    element.textContent =
+                        message;
+
+                    element.classList.remove(
+                        'hidden'
+                    );
+                }
+
+
+                function hideStatus(
+                    element
+                ) {
+
+                    if (!element) {
+                        return;
+                    }
+
+                    element.classList.add(
+                        'hidden'
+                    );
+                }
+
+
+                function validateFile(file) {
+
+                    if (!file) {
+                        return false;
+                    }
+
+                    const allowedTypes = [
+                        'image/jpeg',
+                        'image/png',
+                        'image/webp'
+                    ];
+
+                    if (
+                        !allowedTypes.includes(
+                            file.type
+                        )
+                    ) {
+
+                        throw new Error(
+                            `${file.name}: format gambar tidak didukung.`
+                        );
+                    }
+
+                    if (
+                        file.size >
+                        5 * 1024 * 1024
+                    ) {
+
+                        throw new Error(
+                            `${file.name}: ukuran maksimal 5 MB.`
+                        );
+                    }
+
+                    return true;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Cover Preview
+                |--------------------------------------------------------------------------
+                */
+
+                if (coverInput) {
+
+                    coverInput.addEventListener(
+                        'change',
+                        function () {
+
+                            const file =
+                                this.files?.[0];
+
+                            if (!file) {
+                                return;
+                            }
+
+                            try {
+
+                                validateFile(
+                                    file
+                                );
+
+                                const reader =
+                                    new FileReader();
+
+                                reader.onload =
+                                    function (
+                                        event
+                                    ) {
+
+                                        newCoverPreview.src =
+                                            event.target.result;
+
+                                        newCoverWrapper
+                                            .classList
+                                            .remove(
+                                                'hidden'
+                                            );
+                                    };
+
+                                reader.readAsDataURL(
+                                    file
+                                );
+
+                            } catch (error) {
+
+                                this.value = '';
+
+                                alert(
+                                    error.message
+                                );
+                            }
+
+                        }
+                    );
+
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Gallery Preview
+                |--------------------------------------------------------------------------
+                */
+
+                if (galleryInput) {
+
+                    galleryInput.addEventListener(
+                        'change',
+                        function () {
+
+                            galleryPreview.innerHTML =
+                                '';
+
+                            const files =
+                                Array.from(
+                                    this.files ||
+                                    []
+                                );
+
+                            files.forEach(
+                                function (file) {
+
+                                    try {
+
+                                        validateFile(
+                                            file
+                                        );
+
+                                        const wrapper =
+                                            document.createElement(
+                                                'div'
+                                            );
+
+                                        wrapper.className =
+                                            'overflow-hidden rounded-xl border border-white/10 bg-black/20';
+
+                                        const img =
+                                            document.createElement(
+                                                'img'
+                                            );
+
+                                        img.className =
+                                            'aspect-[4/3] h-full w-full object-cover';
+
+                                        img.alt =
+                                            file.name;
+
+                                        const reader =
+                                            new FileReader();
+
+                                        reader.onload =
+                                            function (
+                                                event
+                                            ) {
+
+                                                img.src =
+                                                    event.target.result;
+                                            };
+
+                                        reader.readAsDataURL(
+                                            file
+                                        );
+
+                                        wrapper.appendChild(
+                                            img
+                                        );
+
+                                        galleryPreview.appendChild(
+                                            wrapper
+                                        );
+
+                                    } catch (
+                                        error
+                                    ) {
+
+                                        alert(
+                                            error.message
+                                        );
+
+                                        galleryInput.value =
+                                            '';
+
+                                        galleryPreview.innerHTML =
+                                            '';
+                                    }
+
+                                }
+                            );
+
+                        }
+                    );
+
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Upload Cover
+                |--------------------------------------------------------------------------
+                */
+
+                async function uploadCover(
+                    upload
+                ) {
+
+                    const file =
+                        coverInput?.files?.[0];
+
+                    if (!file) {
+                        return null;
+                    }
+
+                    validateFile(file);
+
+                    showStatus(
+                        coverStatus,
+                        'Mengupload cover image...'
+                    );
+
+                    const filename =
+                        `projects/${getProjectSlug()}/cover-${Date.now()}-${file.name}`;
+
+
+                    const blob =
+                        await upload(
+                            filename,
+                            file,
+                            {
+                                access: 'public',
+
+                                handleUploadUrl:
+                                    HANDLE_UPLOAD_URL,
+
+                                onUploadProgress(
+                                    event
+                                ) {
+
+                                    const percentage =
+                                        Math.round(
+                                            event.percentage ||
+                                            0
+                                        );
+
+                                    showStatus(
+                                        coverStatus,
+                                        `Mengupload cover image... ${percentage}%`
+                                    );
+                                }
+                            }
+                        );
+
+
+                    coverUrlInput.value =
+                        blob.url;
+
+
+                    showStatus(
+                        coverStatus,
+                        'Cover image berhasil diupload.'
+                    );
+
+
+                    return blob.url;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Upload New Gallery
+                |--------------------------------------------------------------------------
+                */
+
+                async function uploadGallery(
+                    upload
+                ) {
+
+                    const files =
+                        Array.from(
+                            galleryInput?.files ||
+                            []
+                        );
+
+                    if (!files.length) {
+                        return [];
+                    }
+
+
+                    galleryContainer.innerHTML =
+                        '';
+
+
+                    const urls = [];
+
+
+                    for (
+                        let index = 0;
+                        index < files.length;
+                        index++
+                    ) {
+
+                        const file =
+                            files[index];
+
+                        validateFile(file);
+
+
+                        showStatus(
+                            galleryStatus,
+                            `Mengupload gallery ${index + 1}/${files.length}...`
+                        );
+
+
+                        const filename =
+                            `projects/${getProjectSlug()}/gallery-${Date.now()}-${index}-${file.name}`;
+
+
+                        const blob =
+                            await upload(
+                                filename,
+                                file,
+                                {
+                                    access: 'public',
+
+                                    handleUploadUrl:
+                                        HANDLE_UPLOAD_URL,
+
+                                    onUploadProgress(
+                                        event
+                                    ) {
+
+                                        const percentage =
+                                            Math.round(
+                                                event.percentage ||
+                                                0
+                                            );
+
+                                        showStatus(
+                                            galleryStatus,
+                                            `Mengupload gallery ${index + 1}/${files.length}... ${percentage}%`
+                                        );
+                                    }
+                                }
+                            );
+
+
+                        urls.push(
+                            blob.url
+                        );
+
+
+                        const hidden =
+                            document.createElement(
+                                'input'
+                            );
+
+                        hidden.type =
+                            'hidden';
+
+                        hidden.name =
+                            'gallery_urls[]';
+
+                        hidden.value =
+                            blob.url;
+
+
+                        galleryContainer.appendChild(
+                            hidden
+                        );
+                    }
+
+
+                    showStatus(
+                        galleryStatus,
+                        `${urls.length} gallery image berhasil diupload.`
+                    );
+
+
+                    return urls;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Submit
+                |--------------------------------------------------------------------------
+                */
+
+                if (form) {
+
+                    form.addEventListener(
+                        'submit',
+                        async function (
+                            event
+                        ) {
+
+                            if (uploading) {
+                                return;
+                            }
+
+
+                            event.preventDefault();
+
+
+                            uploading =
+                                true;
+
+
+                            submitButton.disabled =
+                                true;
+
+                            submitButton.textContent =
+                                'Uploading...';
+
+
+                            hideStatus(
+                                coverStatus
+                            );
+
+                            hideStatus(
+                                galleryStatus
+                            );
+
+
+                            try {
+
+                                const {
+                                    upload
+                                } = await import(
+                                    'https://cdn.jsdelivr.net/npm/@vercel/blob@2.8.0/client/+esm'
+                                );
+
+
+                                await uploadCover(
+                                    upload
+                                );
+
+
+                                await uploadGallery(
+                                    upload
+                                );
+
+
+                                submitButton.textContent =
+                                    'Saving...';
+
+
+                                HTMLFormElement.prototype.submit.call(
+                                    form
+                                );
+
+
+                            } catch (
+                                error
+                            ) {
+
+                                console.error(
+                                    'Vercel Blob upload error:',
+                                    error
+                                );
+
+
+                                alert(
+                                    error?.message ||
+                                    'Upload gambar gagal.'
+                                );
+
+
+                                uploading =
+                                    false;
+
+
+                                submitButton.disabled =
+                                    false;
+
+
+                                submitButton.textContent =
+                                    'Update Project';
+                            }
+
+                        }
+                    );
+
+                }
+
+            }
+        );
+
+    </script>
 
 @endsection

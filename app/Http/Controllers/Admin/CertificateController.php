@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Certificate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class CertificateController extends Controller
 {
@@ -17,7 +17,10 @@ class CertificateController extends Controller
             ->orderBy('id')
             ->get();
 
-        return view('admin.certificates.index', compact('certificates'));
+        return view(
+            'admin.certificates.index',
+            compact('certificates')
+        );
     }
 
     public function create()
@@ -33,35 +36,56 @@ class CertificateController extends Controller
             'issued_at' => ['nullable', 'string', 'max:255'],
             'credential_id' => ['nullable', 'string', 'max:255'],
             'credential_url' => ['nullable', 'url', 'max:2048'],
-            'file' => [
+
+            /*
+             * File sudah di-upload langsung ke Vercel Blob.
+             */
+            'file' => ['nullable', 'url', 'max:2048'],
+
+            'file_type' => [
                 'nullable',
-                'file',
-                'mimes:jpg,jpeg,png,webp,pdf',
-                'max:10240',
+                'string',
+                'max:10',
             ],
+
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_visible' => ['nullable', 'boolean'],
         ]);
 
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-
-            $validated['file'] = $file->store(
-                'certificates',
-                'public'
-            );
-
-            $validated['file_type'] = $file->getClientOriginalExtension();
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | Visibility
+        |--------------------------------------------------------------------------
+        */
 
         $validated['is_visible'] = $request->boolean('is_visible');
+
+        /*
+        |--------------------------------------------------------------------------
+        | File URL
+        |--------------------------------------------------------------------------
+        |
+        | URL sudah berasal dari Vercel Blob.
+        |
+        */
+
+        $validated['file'] = $request->input('file');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Certificate
+        |--------------------------------------------------------------------------
+        */
 
         Certificate::create($validated);
 
         return redirect()
             ->route('admin.certificates.index')
-            ->with('success', 'Certificate created successfully.');
+            ->with(
+                'success',
+                'Certificate created successfully.'
+            );
     }
 
     public function edit(Certificate $certificate)
@@ -82,55 +106,124 @@ class CertificateController extends Controller
             'issued_at' => ['nullable', 'string', 'max:255'],
             'credential_id' => ['nullable', 'string', 'max:255'],
             'credential_url' => ['nullable', 'url', 'max:2048'],
-            'file' => [
+
+            /*
+             * File baru berupa URL Vercel Blob.
+             */
+            'file' => ['nullable', 'url', 'max:2048'],
+
+            'file_type' => [
                 'nullable',
-                'file',
-                'mimes:jpg,jpeg,png,webp,pdf',
-                'max:10240',
+                'string',
+                'max:10',
             ],
+
             'description' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_visible' => ['nullable', 'boolean'],
         ]);
 
-        if ($request->hasFile('file')) {
-            if ($certificate->file) {
-                Storage::disk('public')->delete(
-                    $certificate->file
-                );
-            }
-
-            $file = $request->file('file');
-
-            $validated['file'] = $file->store(
-                'certificates',
-                'public'
-            );
-
-            $validated['file_type'] = $file->getClientOriginalExtension();
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | Visibility
+        |--------------------------------------------------------------------------
+        */
 
         $validated['is_visible'] = $request->boolean('is_visible');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Replace File
+        |--------------------------------------------------------------------------
+        |
+        | Jika ada file baru:
+        | - file sudah berada di Vercel Blob
+        | - database diperbarui dengan URL baru
+        |
+        | File lama yang masih menggunakan Laravel Storage akan
+        | tetap dihapus.
+        |
+        */
+
+        if ($request->filled('file')) {
+            $oldFile = $certificate->file;
+
+            $validated['file'] = $request->input('file');
+
+            /*
+             * Hapus hanya file legacy Laravel Storage.
+             */
+            if (
+                $oldFile &&
+                !Str::startsWith(
+                    $oldFile,
+                    ['http://', 'https://']
+                )
+            ) {
+                Storage::disk('public')->delete($oldFile);
+            }
+        } else {
+            /*
+             * Jika tidak upload file baru,
+             * pertahankan file lama.
+             */
+            unset($validated['file']);
+            unset($validated['file_type']);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Certificate
+        |--------------------------------------------------------------------------
+        */
 
         $certificate->update($validated);
 
         return redirect()
             ->route('admin.certificates.index')
-            ->with('success', 'Certificate updated successfully.');
+            ->with(
+                'success',
+                'Certificate updated successfully.'
+            );
     }
 
     public function destroy(Certificate $certificate)
     {
-        if ($certificate->file) {
+        /*
+        |--------------------------------------------------------------------------
+        | Delete File
+        |--------------------------------------------------------------------------
+        |
+        | Hanya file legacy Laravel Storage yang dihapus.
+        | URL Vercel Blob tidak diproses dengan Storage.
+        |
+        */
+
+        if (
+            $certificate->file &&
+            !Str::startsWith(
+                $certificate->file,
+                ['http://', 'https://']
+            )
+        ) {
             Storage::disk('public')->delete(
                 $certificate->file
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Delete Database Record
+        |--------------------------------------------------------------------------
+        */
+
         $certificate->delete();
 
         return redirect()
             ->route('admin.certificates.index')
-            ->with('success', 'Certificate deleted successfully.');
+            ->with(
+                'success',
+                'Certificate deleted successfully.'
+            );
     }
 }

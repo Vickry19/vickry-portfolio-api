@@ -24,20 +24,27 @@
         </p>
     </div>
 
-
     <form
+        id="certificate-form"
         action="{{ route('admin.certificates.update', $certificate) }}"
         method="POST"
-        enctype="multipart/form-data"
     >
         @csrf
         @method('PUT')
 
         @include('admin.certificates.form')
 
-
         {{-- Current File --}}
         @if($certificate->file)
+
+            @php
+                $certificateFileUrl = filter_var(
+                    $certificate->file,
+                    FILTER_VALIDATE_URL
+                )
+                    ? $certificate->file
+                    : asset('storage/' . $certificate->file);
+            @endphp
 
             <div class="mt-6 rounded-xl border border-white/10 bg-[#151515] p-5 md:p-6">
 
@@ -51,17 +58,16 @@
                     </p>
                 </div>
 
-
                 @if(
                     in_array(
-                        strtolower($certificate->file_type),
+                        strtolower($certificate->file_type ?? ''),
                         ['jpg', 'jpeg', 'png', 'webp']
                     )
                 )
 
                     <div class="overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
                         <img
-                            src="{{ asset('storage/' . $certificate->file) }}"
+                            src="{{ $certificateFileUrl }}"
                             alt="{{ $certificate->title }}"
                             class="max-h-[400px] w-full object-contain"
                         >
@@ -70,8 +76,9 @@
                 @else
 
                     <a
-                        href="{{ asset('storage/' . $certificate->file) }}"
+                        href="{{ $certificateFileUrl }}"
                         target="_blank"
+                        rel="noopener noreferrer"
                         class="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-medium text-white/60 transition hover:bg-white/[0.07] hover:text-white"
                     >
                         View PDF
@@ -84,13 +91,13 @@
 
         @endif
 
-
         {{-- Actions --}}
         <div class="mt-6 flex flex-wrap gap-3">
 
             <button
                 type="submit"
-                class="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-white/90"
+                id="update-certificate"
+                class="rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 Update Certificate
             </button>
