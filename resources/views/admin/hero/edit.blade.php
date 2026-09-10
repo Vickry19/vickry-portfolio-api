@@ -400,57 +400,42 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function uploadToBlob(file, folder) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | Load Vercel Blob Client
-        |--------------------------------------------------------------------------
-        */
+const { upload } = await import(
+    'https://cdn.jsdelivr.net/npm/@vercel/blob@2.8.0/client/+esm'
+);
 
-        const { upload } = await import(
-            'https://cdn.jsdelivr.net/npm/@vercel/blob@latest/+esm'
-        );
+const filename =
+    folder +
+    '/' +
+    Date.now() +
+    '-' +
+    sanitizeFilename(file.name);
 
+const blob = await upload(
+    filename,
+    file,
+    {
+        access: 'public',
 
-        /*
-        |--------------------------------------------------------------------------
-        | Filename
-        |--------------------------------------------------------------------------
-        */
+        handleUploadUrl:
+            'https://vickry-portfolio.vercel.app/api/blob-upload',
 
-        const filename =
-            folder +
-            '/' +
-            Date.now() +
-            '-' +
-            sanitizeFilename(file.name);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Upload
-        |--------------------------------------------------------------------------
-        */
-
-        const blob = await upload(
-            filename,
-            file,
-            {
-                access: 'public',
-
-                handleUploadUrl: BLOB_UPLOAD_URL,
-            }
-        );
-
-
-        if (!blob || !blob.url) {
-            throw new Error(
-                'Vercel Blob tidak mengembalikan URL file.'
+        onUploadProgress(event) {
+            console.log(
+                `Upload ${folder}: ${event.percentage}%`
             );
         }
-
-
-        return blob.url;
     }
+);
+
+if (!blob || !blob.url) {
+    throw new Error(
+        'Vercel Blob tidak mengembalikan URL file.'
+    );
+}
+
+return blob.url;
+}
 
 
     /*
